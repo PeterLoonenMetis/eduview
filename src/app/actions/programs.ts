@@ -39,7 +39,7 @@ export async function createProgram(prevState: ActionResult, formData: FormData)
     return {
       success: true,
       data: program,
-      redirectTo: `/demo/beheer/opleidingen/${program.id}`
+      redirectTo: `/demo/beheer/opleidingen`
     };
   } catch (error) {
     console.error("Error creating program:", error);
