@@ -1,0 +1,890 @@
+// Prisma Schema for CurriculumView
+// Documentation: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+// ============================================
+// ORGANIZATION ENTITIES
+// ============================================
+
+model Institute {
+  id             String   @id @default(uuid())
+  name           String
+  code           String   @unique
+  logoUrl        String?
+  primaryColor   String   @default("#164B44")
+  secondaryColor String   @default("#E8AE27")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  academies Academy[]
+  users     UserInstitute[]
+
+  @@map("institutes")
+}
+
+model Academy {
+  id          String   @id @default(uuid())
+  instituteId String
+  name        String
+  code        String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  institute Institute @relation(fields: [instituteId], references: [id], onDelete: Cascade)
+  programs  Program[]
+
+  @@unique([instituteId, code])
+  @@map("academies")
+}
+
+model Program {
+  id                String        @id @default(uuid())
+  academyId         String
+  name              String
+  code              String
+  crohoCode         String?
+  educationType     EducationType @default(HBO)
+  degreeType        DegreeType    @default(BACHELOR)
+  durationYears     Int           @default(4)
+  totalCredits      Int           @default(240)
+  accreditationDate DateTime?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  academy   Academy       @relation(fields: [academyId], references: [id], onDelete: Cascade)
+  cohorts   Cohort[]
+  users     UserProgram[]
+  mboConfig MBOConfig?
+  hboConfig HBOConfig?
+
+  @@unique([academyId, code])
+  @@map("programs")
+}
+
+model Cohort {
+  id        String       @id @default(uuid())
+  programId String
+  name      String
+  startYear Int
+  endYear   Int
+  status    CohortStatus @default(DRAFT)
+  isActive  Boolean      @default(false)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  program           Program            @relation(fields: [programId], references: [id], onDelete: Cascade)
+  visions           Vision[]
+  learningOutcomes  LearningOutcome[]
+  professionalRoles ProfessionalRole[]
+  academicYears     AcademicYear[]
+
+  @@map("cohorts")
+}
+
+// ============================================
+// EDUCATION TYPE CONFIGURATIONS
+// ============================================
+
+model MBOConfig {
+  id              String             @id @default(uuid())
+  programId       String             @unique
+  leerweg         MBOLeerweg         @default(BOL)
+  niveau          MBONiveau          @default(NIVEAU_4)
+  ontwerpprincipe MBOOntwerpprincipe @default(HYBRIDE)
+  kdNaam          String?
+  kdVersie        String?
+  kdPeildatum     DateTime?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  program    Program     @relation(fields: [programId], references: [id], onDelete: Cascade)
+  kerntaken  Kerntaak[]
+  keuzedelen Keuzedeel[]
+
+  @@map("mbo_configs")
+}
+
+model Kerntaak {
+  id           String   @id @default(uuid())
+  mboConfigId  String
+  code         String
+  naam         String
+  beschrijving String?
+  sortOrder    Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  mboConfig     MBOConfig    @relation(fields: [mboConfigId], references: [id], onDelete: Cascade)
+  werkprocessen Werkproces[]
+
+  @@unique([mboConfigId, code])
+  @@map("kerntaken")
+}
+
+model Werkproces {
+  id           String   @id @default(uuid())
+  kerntaakId   String
+  code         String
+  naam         String
+  beschrijving String?
+  sortOrder    Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  kerntaak Kerntaak @relation(fields: [kerntaakId], references: [id], onDelete: Cascade)
+
+  @@unique([kerntaakId, code])
+  @@map("werkprocessen")
+}
+
+model Keuzedeel {
+  id           String   @id @default(uuid())
+  mboConfigId  String
+  code         String
+  naam         String
+  studiepunten Int      @default(0)
+  beschrijving String?
+  sortOrder    Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  mboConfig MBOConfig @relation(fields: [mboConfigId], references: [id], onDelete: Cascade)
+
+  @@unique([mboConfigId, code])
+  @@map("keuzedelen")
+}
+
+model HBOConfig {
+  id                String               @id @default(uuid())
+  programId         String               @unique
+  domein            String?
+  variant           HBOVariant           @default(VOLTIJD)
+  toetsfilosofie    HBOToetsfilosofie    @default(TRADITIONEEL)
+  ordeningsprincipe HBOOrdeningsprincipe @default(THEMAS)
+  tijdsnede         HBOTijdsnede         @default(SEMESTER)
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+
+  program Program @relation(fields: [programId], references: [id], onDelete: Cascade)
+
+  @@map("hbo_configs")
+}
+
+// ============================================
+// VISION ENTITIES (Three Anchors)
+// ============================================
+
+model Vision {
+  id          String        @id @default(uuid())
+  cohortId    String
+  type        VisionType
+  title       String
+  content     String
+  version     Int           @default(1)
+  status      ContentStatus @default(DRAFT)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  publishedAt DateTime?
+
+  cohort       Cohort              @relation(fields: [cohortId], references: [id], onDelete: Cascade)
+  principles   VisionPrinciple[]
+  outcomeLinks OutcomeVisionLink[]
+
+  @@unique([cohortId, type])
+  @@map("visions")
+}
+
+model VisionPrinciple {
+  id          String   @id @default(uuid())
+  visionId    String
+  title       String
+  description String
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  vision Vision @relation(fields: [visionId], references: [id], onDelete: Cascade)
+
+  @@map("vision_principles")
+}
+
+// ============================================
+// PROFESSIONAL ROLES & TASKS
+// ============================================
+
+model ProfessionalRole {
+  id          String            @id @default(uuid())
+  cohortId    String
+  name        String
+  description String
+  level       ProfessionalLevel @default(STARTING)
+  sortOrder   Int               @default(0)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  cohort Cohort             @relation(fields: [cohortId], references: [id], onDelete: Cascade)
+  tasks  ProfessionalTask[]
+
+  @@map("professional_roles")
+}
+
+model ProfessionalTask {
+  id          String   @id @default(uuid())
+  roleId      String
+  name        String
+  description String
+  context     String?
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  role        ProfessionalRole             @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  assignments AssignmentProfessionalTask[]
+
+  @@map("professional_tasks")
+}
+
+// ============================================
+// LEARNING OUTCOMES
+// ============================================
+
+model LearningOutcome {
+  id          String          @id @default(uuid())
+  cohortId    String
+  code        String
+  title       String
+  description String
+  level       BloomLevel      @default(APPLY)
+  category    OutcomeCategory @default(SKILLS)
+  sortOrder   Int             @default(0)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  cohort              Cohort                @relation(fields: [cohortId], references: [id], onDelete: Cascade)
+  visionLinks         OutcomeVisionLink[]
+  assessmentOutcomes  AssessmentOutcome[]
+  assignmentOutcomes  AssignmentOutcome[]
+  assessmentCriteria  AssessmentCriterion[]
+
+  @@unique([cohortId, code])
+  @@map("learning_outcomes")
+}
+
+model OutcomeVisionLink {
+  id          String         @id @default(uuid())
+  outcomeId   String
+  visionId    String
+  relevance   RelevanceLevel @default(PRIMARY)
+  explanation String?
+  createdAt   DateTime       @default(now())
+
+  outcome LearningOutcome @relation(fields: [outcomeId], references: [id], onDelete: Cascade)
+  vision  Vision          @relation(fields: [visionId], references: [id], onDelete: Cascade)
+
+  @@unique([outcomeId, visionId])
+  @@map("outcome_vision_links")
+}
+
+// ============================================
+// CURRICULUM STRUCTURE (Macro)
+// ============================================
+
+model AcademicYear {
+  id            String   @id @default(uuid())
+  cohortId      String
+  yearNumber    Int
+  name          String
+  targetCredits Int      @default(60)
+  description   String?
+  sortOrder     Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  cohort Cohort  @relation(fields: [cohortId], references: [id], onDelete: Cascade)
+  blocks Block[]
+
+  @@unique([cohortId, yearNumber])
+  @@map("academic_years")
+}
+
+model Block {
+  id               String        @id @default(uuid())
+  academicYearId   String
+  code             String
+  name             String
+  shortDescription String
+  longDescription  String?
+  type             BlockType     @default(EDUCATIONAL)
+  credits          Int
+  durationWeeks    Int           @default(10)
+  status           ContentStatus @default(DRAFT)
+  color            String?
+  sortOrder        Int           @default(0)
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  academicYear    AcademicYear          @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+  visionRelations BlockVisionRelation[]
+  teachingUnits   TeachingUnit[]
+  assessments     Assessment[]
+
+  @@unique([academicYearId, code])
+  @@map("blocks")
+}
+
+model BlockVisionRelation {
+  id          String           @id @default(uuid())
+  blockId     String
+  visionType  VisionType
+  strength    RelationStrength @default(MODERATE)
+  explanation String?
+  createdAt   DateTime         @default(now())
+
+  block Block @relation(fields: [blockId], references: [id], onDelete: Cascade)
+
+  @@unique([blockId, visionType])
+  @@map("block_vision_relations")
+}
+
+// ============================================
+// CURRICULUM STRUCTURE (Micro)
+// ============================================
+
+model TeachingUnit {
+  id             String   @id @default(uuid())
+  blockId        String
+  code           String
+  name           String
+  description    String?
+  credits        Int
+  contactHours   Int      @default(0)
+  selfStudyHours Int      @default(0)
+  sortOrder      Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  block         Block          @relation(fields: [blockId], references: [id], onDelete: Cascade)
+  weekPlannings WeekPlanning[]
+  assignments   Assignment[]
+  assessments   Assessment[]
+
+  @@unique([blockId, code])
+  @@map("teaching_units")
+}
+
+model WeekPlanning {
+  id             String   @id @default(uuid())
+  teachingUnitId String
+  weekNumber     Int
+  theme          String
+  learningGoals  String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  teachingUnit TeachingUnit       @relation(fields: [teachingUnitId], references: [id], onDelete: Cascade)
+  activities   LearningActivity[]
+  assignments  Assignment[]
+
+  @@unique([teachingUnitId, weekNumber])
+  @@map("week_plannings")
+}
+
+model LearningActivity {
+  id              String       @id @default(uuid())
+  weekPlanningId  String
+  name            String
+  description     String?
+  activityType    ActivityType @default(LECTURE)
+  durationMinutes Int          @default(90)
+  materials       String?
+  sortOrder       Int          @default(0)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  weekPlanning WeekPlanning @relation(fields: [weekPlanningId], references: [id], onDelete: Cascade)
+
+  @@map("learning_activities")
+}
+
+model Assignment {
+  id              String         @id @default(uuid())
+  teachingUnitId  String
+  weekPlanningId  String?
+  code            String
+  title           String
+  description     String
+  assignmentType  AssignmentType @default(SKILL)
+  workForm        WorkForm       @default(INDIVIDUAL)
+  isGroup         Boolean        @default(false)
+  groupSizeMin    Int?
+  groupSizeMax    Int?
+  estimatedHours  Int?
+  dueWeek         Int?
+  sortOrder       Int            @default(0)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  teachingUnit      TeachingUnit                 @relation(fields: [teachingUnitId], references: [id], onDelete: Cascade)
+  weekPlanning      WeekPlanning?                @relation(fields: [weekPlanningId], references: [id])
+  outcomes          AssignmentOutcome[]
+  professionalTasks AssignmentProfessionalTask[]
+
+  @@unique([teachingUnitId, code])
+  @@map("assignments")
+}
+
+model AssignmentOutcome {
+  id           String            @id @default(uuid())
+  assignmentId String
+  outcomeId    String
+  contribution ContributionLevel @default(PRIMARY)
+  createdAt    DateTime          @default(now())
+
+  assignment Assignment      @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  outcome    LearningOutcome @relation(fields: [outcomeId], references: [id], onDelete: Cascade)
+
+  @@unique([assignmentId, outcomeId])
+  @@map("assignment_outcomes")
+}
+
+model AssignmentProfessionalTask {
+  id           String   @id @default(uuid())
+  assignmentId String
+  taskId       String
+  createdAt    DateTime @default(now())
+
+  assignment Assignment       @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  task       ProfessionalTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@unique([assignmentId, taskId])
+  @@map("assignment_professional_tasks")
+}
+
+// ============================================
+// ASSESSMENTS
+// ============================================
+
+model Assessment {
+  id              String         @id @default(uuid())
+  blockId         String
+  teachingUnitId  String?
+  code            String
+  title           String
+  description     String?
+  assessmentType  AssessmentType @default(SUMMATIVE)
+  assessmentForm  AssessmentForm
+  isSummative     Boolean        @default(true)
+  weight          Int            @default(100)
+  credits         Int
+  minimumGrade    Float          @default(5.5)
+  retakeAllowed   Int            @default(2)
+  gradingModel    GradingModel   @default(NUMERIC)
+  durationMinutes Int?
+  sortOrder       Int            @default(0)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  block        Block                 @relation(fields: [blockId], references: [id], onDelete: Cascade)
+  teachingUnit TeachingUnit?         @relation(fields: [teachingUnitId], references: [id])
+  outcomes     AssessmentOutcome[]
+  criteria     AssessmentCriterion[]
+
+  @@unique([blockId, code])
+  @@map("assessments")
+}
+
+model AssessmentOutcome {
+  id           String   @id @default(uuid())
+  assessmentId String
+  outcomeId    String
+  weight       Int      @default(100)
+  createdAt    DateTime @default(now())
+
+  assessment Assessment      @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  outcome    LearningOutcome @relation(fields: [outcomeId], references: [id], onDelete: Cascade)
+
+  @@unique([assessmentId, outcomeId])
+  @@map("assessment_outcomes")
+}
+
+model AssessmentCriterion {
+  id           String   @id @default(uuid())
+  assessmentId String
+  outcomeId    String?
+  name         String
+  description  String
+  weight       Int      @default(100)
+  sortOrder    Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  assessment   Assessment       @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  outcome      LearningOutcome? @relation(fields: [outcomeId], references: [id])
+  rubricLevels RubricLevel[]
+
+  @@map("assessment_criteria")
+}
+
+model RubricLevel {
+  id          String   @id @default(uuid())
+  criterionId String
+  level       Int
+  label       String
+  description String
+  points      Int
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  criterion AssessmentCriterion @relation(fields: [criterionId], references: [id], onDelete: Cascade)
+
+  @@map("rubric_levels")
+}
+
+// ============================================
+// USER MANAGEMENT
+// ============================================
+
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  emailVerified DateTime?
+  passwordHash  String?
+  firstName     String
+  lastName      String
+  name          String?
+  image         String?
+  role          UserRole  @default(TEACHER)
+  isActive      Boolean   @default(true)
+  lastLogin     DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  institutes UserInstitute[]
+  programs   UserProgram[]
+  auditLogs  AuditLog[]
+  versions   ContentVersion[]
+  accounts   Account[]
+  sessions   Session[]
+
+  @@map("users")
+}
+
+model Account {
+  id                String  @id @default(uuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(uuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+model UserInstitute {
+  id           String    @id @default(uuid())
+  userId       String
+  instituteId  String
+  roleOverride UserRole?
+  createdAt    DateTime  @default(now())
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  institute Institute @relation(fields: [instituteId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, instituteId])
+  @@map("user_institutes")
+}
+
+model UserProgram {
+  id           String    @id @default(uuid())
+  userId       String
+  programId    String
+  roleOverride UserRole?
+  canEdit      Boolean   @default(false)
+  createdAt    DateTime  @default(now())
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  program Program @relation(fields: [programId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, programId])
+  @@map("user_programs")
+}
+
+// ============================================
+// AUDIT & VERSIONING
+// ============================================
+
+model AuditLog {
+  id         String      @id @default(uuid())
+  userId     String
+  entityType String
+  entityId   String
+  action     AuditAction
+  oldValues  String?
+  newValues  String?
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime    @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([entityType, entityId])
+  @@index([userId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+model ContentVersion {
+  id              String   @id @default(uuid())
+  entityType      String
+  entityId        String
+  versionNumber   Int
+  contentSnapshot String
+  createdBy       String
+  comment         String?
+  createdAt       DateTime @default(now())
+
+  user User @relation(fields: [createdBy], references: [id])
+
+  @@index([entityType, entityId])
+  @@map("content_versions")
+}
+
+// ============================================
+// ENUMS
+// ============================================
+
+enum DegreeType {
+  BACHELOR
+  MASTER
+  ASSOCIATE
+  MBO4
+  MBO3
+  MBO2
+}
+
+enum CohortStatus {
+  DRAFT
+  ACTIVE
+  COMPLETED
+  ARCHIVED
+}
+
+enum VisionType {
+  LEARNING
+  PROFESSION
+  ASSESSMENT
+}
+
+enum ContentStatus {
+  DRAFT
+  IN_REVIEW
+  APPROVED
+  ARCHIVED
+}
+
+enum BlockType {
+  EDUCATIONAL
+  PROJECT
+  PRACTICAL
+  INTERNSHIP
+  GRADUATION
+}
+
+enum ProfessionalLevel {
+  STARTING
+  PROFICIENT
+  EXPERT
+}
+
+enum BloomLevel {
+  REMEMBER
+  UNDERSTAND
+  APPLY
+  ANALYZE
+  EVALUATE
+  CREATE
+}
+
+enum OutcomeCategory {
+  KNOWLEDGE
+  SKILLS
+  ATTITUDE
+}
+
+enum RelevanceLevel {
+  PRIMARY
+  SECONDARY
+  TERTIARY
+}
+
+enum RelationStrength {
+  STRONG
+  MODERATE
+  WEAK
+}
+
+enum ActivityType {
+  LECTURE
+  SEMINAR
+  WORKSHOP
+  SELF_STUDY
+  GROUP_WORK
+  PRACTICAL
+  EXCURSION
+  GUEST_LECTURE
+  COACHING
+}
+
+enum AssignmentType {
+  KNOWLEDGE
+  SKILL
+  REFLECTION
+  RESEARCH
+  PRODUCTION
+}
+
+enum WorkForm {
+  INDIVIDUAL
+  PAIRS
+  SMALL_GROUP
+  LARGE_GROUP
+  CLASS_WIDE
+}
+
+enum ContributionLevel {
+  PRIMARY
+  SUPPORTING
+}
+
+enum AssessmentType {
+  FORMATIVE
+  SUMMATIVE
+}
+
+enum AssessmentForm {
+  WRITTEN_EXAM_OPEN
+  WRITTEN_EXAM_CLOSED
+  WRITTEN_EXAM_MIXED
+  ORAL_EXAM
+  PORTFOLIO
+  PRESENTATION
+  PRODUCT
+  PRACTICAL_ASSESSMENT
+  REPORT
+  CASE_STUDY
+  SKILL_TEST
+  PEER_ASSESSMENT
+  SELF_ASSESSMENT
+}
+
+enum GradingModel {
+  NUMERIC
+  PASS_FAIL
+  RUBRIC
+  LETTER
+}
+
+enum UserRole {
+  ADMIN
+  MANAGER
+  DEVELOPER
+  TEACHER
+  STUDENT
+  REVIEWER
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  PUBLISH
+  ARCHIVE
+}
+
+// ============================================
+// EDUCATION TYPE ENUMS
+// ============================================
+
+enum EducationType {
+  MBO
+  HBO
+}
+
+enum MBOLeerweg {
+  BOL // Beroeps Opleidende Leerweg
+  BBL // Beroeps Begeleidende Leerweg
+}
+
+enum MBONiveau {
+  NIVEAU_1
+  NIVEAU_2
+  NIVEAU_3
+  NIVEAU_4
+}
+
+enum MBOOntwerpprincipe {
+  SCHOOL_PRIMAIR
+  BPV_PRIMAIR
+  HYBRIDE
+}
+
+enum HBOVariant {
+  VOLTIJD
+  DEELTIJD
+  DUAAL
+}
+
+enum HBOToetsfilosofie {
+  PROGRAMMATISCH
+  TRADITIONEEL
+}
+
+enum HBOOrdeningsprincipe {
+  PROJECTEN
+  VRAAGSTUKKEN
+  THEMAS
+}
+
+enum HBOTijdsnede {
+  JAAR
+  SEMESTER
+  PERIODE
+}
