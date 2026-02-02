@@ -1,13 +1,13 @@
 "use client";
 
-import { useActionState, useState, useTransition } from "react";
+import { useActionState, useState, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Alert } from "@/components/ui/alert";
 import { Dialog, DialogHeader, DialogContent, DialogFooter } from "@/components/ui/dialog";
-import { createProgram, updateProgram } from "@/app/actions/programs";
+import { createProgram, updateProgram, type ActionResult } from "@/app/actions/programs";
 import { createAcademyDirect, createInstituteDirect } from "@/app/actions/academies";
 import { Plus, Building2, School, GraduationCap } from "lucide-react";
 import type { Program, Academy, Institute } from "@prisma/client";
@@ -51,7 +51,14 @@ export function ProgramForm({
 
   const [state, formAction, isPending] = useActionState(action, {
     success: false,
-  });
+  } as ActionResult);
+
+  // Handle redirect after successful creation
+  useEffect(() => {
+    if (state.success && state.redirectTo) {
+      router.push(state.redirectTo);
+    }
+  }, [state, router]);
 
   // State for institutes and academies
   const [institutes, setInstitutes] = useState(initialInstitutes);

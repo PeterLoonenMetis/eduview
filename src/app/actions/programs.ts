@@ -1,7 +1,6 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import { programSchema, programUpdateSchema } from "@/lib/validations/program";
 import * as db from "@/lib/db/programs";
 
@@ -10,6 +9,7 @@ export type ActionResult<T = unknown> = {
   data?: T;
   error?: string;
   errors?: Record<string, string[]>;
+  redirectTo?: string;
 };
 
 export async function createProgram(prevState: ActionResult, formData: FormData): Promise<ActionResult> {
@@ -33,19 +33,18 @@ export async function createProgram(prevState: ActionResult, formData: FormData)
     };
   }
 
-  let programId: string;
-
   try {
     const program = await db.createProgram(validated.data);
-    programId = program.id;
     revalidatePath("/demo/beheer/opleidingen");
+    return {
+      success: true,
+      data: program,
+      redirectTo: `/demo/beheer/opleidingen/${program.id}`
+    };
   } catch (error) {
     console.error("Error creating program:", error);
     return { success: false, error: "Er is een fout opgetreden bij het aanmaken van de opleiding." };
   }
-
-  // Redirect after successful creation (must be outside try-catch)
-  redirect(`/demo/beheer/opleidingen/${programId}`);
 }
 
 export async function updateProgram(id: string, prevState: ActionResult, formData: FormData): Promise<ActionResult> {
@@ -73,16 +72,14 @@ export async function updateProgram(id: string, prevState: ActionResult, formDat
   }
 
   try {
-    await db.updateProgram(id, validated.data);
+    const program = await db.updateProgram(id, validated.data);
     revalidatePath("/demo/beheer/opleidingen");
     revalidatePath(`/demo/beheer/opleidingen/${id}`);
+    return { success: true, data: program };
   } catch (error) {
     console.error("Error updating program:", error);
     return { success: false, error: "Er is een fout opgetreden bij het bijwerken van de opleiding." };
   }
-
-  // Redirect after successful update
-  redirect(`/demo/beheer/opleidingen/${id}`);
 }
 
 export async function deleteProgram(id: string): Promise<ActionResult> {
