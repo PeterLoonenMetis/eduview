@@ -184,6 +184,9 @@ export const enumLabels = {
   BACHELOR: "Bachelor",
   MASTER: "Master",
   ASSOCIATE: "Associate Degree",
+  MBO4: "MBO Niveau 4",
+  MBO3: "MBO Niveau 3",
+  MBO2: "MBO Niveau 2",
 } as const;
 
 // Get label for any enum value

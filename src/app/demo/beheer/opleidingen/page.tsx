@@ -4,6 +4,9 @@ import { ProgramList } from "@/components/admin/program/program-list";
 import { getPrograms } from "@/lib/db/programs";
 import { Plus } from "lucide-react";
 
+// Force dynamic rendering - this page needs fresh data
+export const dynamic = "force-dynamic";
+
 export default async function OpleidingenPage() {
   const programs = await getPrograms();
 
