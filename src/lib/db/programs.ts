@@ -92,7 +92,7 @@ export type CreateProgramInput = {
   academyId: string;
   name: string;
   code: string;
-  crohoCode?: string;
+  crohoCode?: string | null;
   educationType?: EducationType;
   degreeType?: DegreeType;
   durationYears?: number;
