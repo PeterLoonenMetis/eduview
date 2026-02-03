@@ -42,13 +42,16 @@ export function MBOWizardForm({ academies: initialAcademies }: MBOWizardFormProp
   // Academies list (can be updated when new ones are created)
   const [academies, setAcademies] = useState(initialAcademies);
 
-  // Get unique institutes from academies
-  const institutes = academies.reduce((acc, academy) => {
+  // Get unique institutes from academies (initial)
+  const initialInstitutes = initialAcademies.reduce((acc, academy) => {
     if (!acc.find(i => i.id === academy.institute.id)) {
       acc.push(academy.institute);
     }
     return acc;
   }, [] as Institute[]);
+
+  // Separate state for institutes (so new ones can be added)
+  const [institutes, setInstitutes] = useState<Institute[]>(initialInstitutes);
 
   // Form state
   const [selectedInstituteId, setSelectedInstituteId] = useState(institutes[0]?.id || "");
@@ -102,8 +105,13 @@ export function MBOWizardForm({ academies: initialAcademies }: MBOWizardFormProp
       const result = await response.json();
 
       if (result.success) {
-        // Add the new institute to the list
-        const newInstitute = result.data;
+        // Add the new institute to the institutes list
+        const newInstitute: Institute = {
+          id: result.data.id,
+          name: result.data.name,
+          code: result.data.code,
+        };
+        setInstitutes([...institutes, newInstitute]);
         setSelectedInstituteId(newInstitute.id);
         setShowNewInstituteForm(false);
         setNewInstituteName("");
