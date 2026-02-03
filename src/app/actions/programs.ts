@@ -34,16 +34,24 @@ export async function createProgram(prevState: ActionResult, formData: FormData)
   }
 
   try {
+    console.log("Creating program with data:", JSON.stringify(validated.data));
     const program = await db.createProgram(validated.data);
+    console.log("Program created successfully:", program.id);
     revalidatePath("/demo/beheer/opleidingen");
     return {
       success: true,
-      data: program,
+      data: { id: program.id, name: program.name },
       redirectTo: `/demo/beheer/opleidingen`
     };
   } catch (error) {
-    console.error("Error creating program:", error);
-    return { success: false, error: "Er is een fout opgetreden bij het aanmaken van de opleiding." };
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    const errorStack = error instanceof Error ? error.stack : undefined;
+    console.error("Error creating program:", errorMessage);
+    console.error("Stack:", errorStack);
+    return {
+      success: false,
+      error: `Fout bij aanmaken: ${errorMessage}`
+    };
   }
 }
 

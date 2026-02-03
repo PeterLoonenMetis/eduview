@@ -56,9 +56,23 @@ export function ProgramForm({
   // Handle redirect after successful creation
   useEffect(() => {
     if (state.success && state.redirectTo) {
-      router.push(state.redirectTo);
+      // Small delay to ensure revalidation completes
+      const timer = setTimeout(() => {
+        router.push(state.redirectTo!);
+      }, 500);
+      return () => clearTimeout(timer);
     }
   }, [state, router]);
+
+  // Debug state changes
+  useEffect(() => {
+    if (state.error) {
+      console.error("Form error:", state.error);
+    }
+    if (state.success) {
+      console.log("Form success:", state.data);
+    }
+  }, [state]);
 
   // State for institutes and academies
   const [institutes, setInstitutes] = useState(initialInstitutes);
