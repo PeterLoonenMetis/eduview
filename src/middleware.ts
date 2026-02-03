@@ -13,7 +13,7 @@ export async function middleware(request: NextRequest) {
   const isAuthApi = pathname.startsWith("/api/auth");
 
   // Public API routes (read-only data)
-  const isPublicApi = pathname.startsWith("/api/programs");
+  const isPublicApi = pathname.startsWith("/api/programs") || pathname.startsWith("/api/test-db");
 
   // Static files and API routes
   if (isAuthApi || isPublicApi || pathname.startsWith("/_next") || pathname.includes(".")) {
