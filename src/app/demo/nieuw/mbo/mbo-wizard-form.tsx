@@ -1,21 +1,18 @@
 "use client";
 
-import { useState, useActionState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Select } from "@/components/ui/select";
 import { Alert } from "@/components/ui/alert";
-import { ArrowRight, ArrowLeft, School, Check } from "lucide-react";
+import { ArrowRight, ArrowLeft, School, Check, Loader2 } from "lucide-react";
 import {
   MBO_LEERWEG_OPTIONS,
   MBO_NIVEAU_OPTIONS,
   MBO_ONTWERPPRINCIPE_OPTIONS,
   MBO_DURATION_OPTIONS,
 } from "@/lib/education-types/mbo";
-import { createMBOProgramAction } from "@/app/actions/program-wizard";
 
 interface Academy {
   id: string;
@@ -30,19 +27,62 @@ interface MBOWizardFormProps {
 export function MBOWizardForm({ academies }: MBOWizardFormProps) {
   const router = useRouter();
   const [step, setStep] = useState(1);
-  const [state, formAction, isPending] = useActionState(createMBOProgramAction, {
-    success: false,
-  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
 
-  // Redirect on success
-  useEffect(() => {
-    if (state.success && state.programId) {
-      router.push(`/demo/beheer/opleidingen/${state.programId}`);
+  // Form state
+  const [academyId, setAcademyId] = useState(academies[0]?.id || "");
+  const [name, setName] = useState("");
+  const [code, setCode] = useState("");
+  const [niveau, setNiveau] = useState("NIVEAU_4");
+  const [durationYears, setDurationYears] = useState("4");
+  const [leerweg, setLeerweg] = useState("BOL");
+  const [ontwerpprincipe, setOntwerpprincipe] = useState("HYBRIDE");
+  const [kdNaam, setKdNaam] = useState("");
+  const [kdVersie, setKdVersie] = useState("");
+  const [kdPeildatum, setKdPeildatum] = useState("");
+
+  const handleSubmit = async () => {
+    setIsSubmitting(true);
+    setError(null);
+
+    try {
+      const response = await fetch("/api/programs/create-mbo", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          academyId,
+          name,
+          code,
+          durationYears: parseInt(durationYears),
+          niveau,
+          leerweg,
+          ontwerpprincipe,
+          kdNaam: kdNaam || undefined,
+          kdVersie: kdVersie || undefined,
+          kdPeildatum: kdPeildatum || undefined,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        setSuccess(true);
+        setTimeout(() => {
+          router.push("/demo/beheer/opleidingen");
+          router.refresh();
+        }, 1000);
+      } else {
+        setError(result.error || "Er is een fout opgetreden");
+      }
+    } catch (err) {
+      console.error("Submit error:", err);
+      setError("Kon geen verbinding maken met de server");
+    } finally {
+      setIsSubmitting(false);
     }
-  }, [state.success, state.programId, router]);
-
-  // Use first academy as default, or show error if no academies
-  const defaultAcademyId = academies.length > 0 ? academies[0].id : "";
+  };
 
   if (academies.length === 0) {
     return (
@@ -75,170 +115,249 @@ export function MBOWizardForm({ academies }: MBOWizardFormProps) {
         <div className="h-px w-8 bg-border" />
         <StepIndicator step={3} label="Configuratie" active={step === 2} completed={step > 2} />
         <div className="h-px w-8 bg-border" />
-        <StepIndicator step={4} label="Klaar" active={state.success} />
+        <StepIndicator step={4} label="Klaar" active={success} />
       </div>
 
-      {state.error && (
+      {error && (
         <Alert variant="error" title="Fout">
-          {state.error}
+          {error}
         </Alert>
       )}
 
-      <form action={formAction}>
-        {step === 1 && (
-          <div className="space-y-6">
-            {/* Basic Program Info */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Stap 2: Basisgegevens opleiding</CardTitle>
-                <CardDescription>Vul de algemene gegevens van de opleiding in</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {/* Academy selector */}
-                <Select
-                  name="academyId"
-                  label="Academie / School"
-                  options={academies.map((academy) => ({
-                    value: academy.id,
-                    label: `${academy.name} (${academy.code})`,
-                  }))}
-                  defaultValue={defaultAcademyId}
+      {success && (
+        <Alert variant="success" title="Succes!">
+          De opleiding is aangemaakt. Je wordt doorgestuurd...
+        </Alert>
+      )}
+
+      {step === 1 && !success && (
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Stap 2: Basisgegevens opleiding</CardTitle>
+              <CardDescription>Vul de algemene gegevens van de opleiding in</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Academie / School *
+                </label>
+                <select
+                  value={academyId}
+                  onChange={(e) => setAcademyId(e.target.value)}
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
                   required
-                />
+                >
+                  {academies.map((academy) => (
+                    <option key={academy.id} value={academy.id}>
+                      {academy.name} ({academy.code})
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-                <div className="grid gap-4 md:grid-cols-2">
-                  <Input
-                    name="name"
-                    label="Naam opleiding"
-                    placeholder="bijv. Applicatieontwikkelaar"
+              <div className="grid gap-4 md:grid-cols-2">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Naam opleiding *
+                  </label>
+                  <input
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="bijv. Mechatronica"
+                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
                     required
                   />
-                  <Input
-                    name="code"
-                    label="Opleidingscode"
-                    placeholder="bijv. AO"
-                    required
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Opleidingscode *
+                  </label>
+                  <input
+                    type="text"
+                    value={code}
+                    onChange={(e) => setCode(e.target.value.toUpperCase())}
+                    placeholder="bijv. MECH"
                     maxLength={10}
+                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                    required
                   />
                 </div>
-                <div className="grid gap-4 md:grid-cols-2">
-                  <Select
-                    name="niveau"
-                    label="MBO Niveau"
-                    options={MBO_NIVEAU_OPTIONS.map((opt) => ({
-                      value: opt.value,
-                      label: opt.label,
-                    }))}
-                    defaultValue="NIVEAU_4"
-                  />
-                  <Select
-                    name="durationYears"
-                    label="Opleidingsduur"
-                    options={MBO_DURATION_OPTIONS.map((opt) => ({
-                      value: opt.value.toString(),
-                      label: opt.label,
-                    }))}
-                    defaultValue="4"
-                  />
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    MBO Niveau
+                  </label>
+                  <select
+                    value={niveau}
+                    onChange={(e) => setNiveau(e.target.value)}
+                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                  >
+                    {MBO_NIVEAU_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                  </select>
                 </div>
-              </CardContent>
-            </Card>
-
-            <div className="flex justify-between">
-              <Link href="/demo/nieuw">
-                <Button type="button" variant="outline">
-                  <ArrowLeft className="h-4 w-4 mr-2" />
-                  Terug
-                </Button>
-              </Link>
-              <Button type="button" onClick={() => setStep(2)}>
-                Volgende stap
-                <ArrowRight className="h-4 w-4 ml-2" />
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {step === 2 && (
-          <div className="space-y-6">
-            {/* MBO Config */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Stap 3: MBO Configuratie</CardTitle>
-                <CardDescription>
-                  Stel de MBO-specifieke opties in voor het curriculum
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <Select
-                  name="leerweg"
-                  label="Leerweg"
-                  options={MBO_LEERWEG_OPTIONS.map((opt) => ({
-                    value: opt.value,
-                    label: opt.label,
-                  }))}
-                  defaultValue="BOL"
-                />
-                <div className="text-sm text-muted-foreground bg-muted p-4 rounded-lg">
-                  <ul className="space-y-1 list-disc list-inside">
-                    <li>
-                      <strong>BOL:</strong> School-gestuurd onderwijs met stage
-                    </li>
-                    <li>
-                      <strong>BBL:</strong> Leren en werken gecombineerd (4 dagen werken, 1 dag school)
-                    </li>
-                  </ul>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Opleidingsduur
+                  </label>
+                  <select
+                    value={durationYears}
+                    onChange={(e) => setDurationYears(e.target.value)}
+                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                  >
+                    {MBO_DURATION_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value.toString()}>{opt.label}</option>
+                    ))}
+                  </select>
                 </div>
+              </div>
+            </CardContent>
+          </Card>
 
-                <Select
-                  name="ontwerpprincipe"
-                  label="Ontwerpprincipe leeromgeving"
-                  options={MBO_ONTWERPPRINCIPE_OPTIONS.map((opt) => ({
-                    value: opt.value,
-                    label: `${opt.label} - ${opt.description}`,
-                  }))}
-                  defaultValue="HYBRIDE"
-                />
-              </CardContent>
-            </Card>
-
-            {/* Kwalificatiedossier */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Kwalificatiedossier</CardTitle>
-                <CardDescription>
-                  Optioneel: vul gegevens in over het kwalificatiedossier
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid gap-4 md:grid-cols-3">
-                  <Input
-                    name="kdNaam"
-                    label="Naam kwalificatiedossier"
-                    placeholder="bijv. ICT- en Mediabeheer"
-                  />
-                  <Input name="kdVersie" label="Versie" placeholder="bijv. 2024" />
-                  <Input name="kdPeildatum" label="Peildatum" type="date" />
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  Na het aanmaken van de opleiding kun je kerntaken en werkprocessen toevoegen.
-                </p>
-              </CardContent>
-            </Card>
-
-            <div className="flex justify-between">
-              <Button type="button" variant="outline" onClick={() => setStep(1)}>
+          <div className="flex justify-between">
+            <Link href="/demo/nieuw">
+              <Button type="button" variant="outline">
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Terug
               </Button>
-              <Button type="submit" disabled={isPending}>
-                {isPending ? "Bezig met aanmaken..." : "Opleiding aanmaken"}
-                <Check className="h-4 w-4 ml-2" />
-              </Button>
-            </div>
+            </Link>
+            <Button
+              type="button"
+              onClick={() => setStep(2)}
+              disabled={!name || !code || !academyId}
+            >
+              Volgende stap
+              <ArrowRight className="h-4 w-4 ml-2" />
+            </Button>
           </div>
-        )}
-      </form>
+        </div>
+      )}
+
+      {step === 2 && !success && (
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Stap 3: MBO Configuratie</CardTitle>
+              <CardDescription>
+                Stel de MBO-specifieke opties in voor het curriculum
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Leerweg
+                </label>
+                <select
+                  value={leerweg}
+                  onChange={(e) => setLeerweg(e.target.value)}
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                >
+                  {MBO_LEERWEG_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="text-sm text-muted-foreground bg-muted p-4 rounded-lg">
+                <ul className="space-y-1 list-disc list-inside">
+                  <li><strong>BOL:</strong> School-gestuurd onderwijs met stage</li>
+                  <li><strong>BBL:</strong> Leren en werken gecombineerd (4 dagen werken, 1 dag school)</li>
+                </ul>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Ontwerpprincipe leeromgeving
+                </label>
+                <select
+                  value={ontwerpprincipe}
+                  onChange={(e) => setOntwerpprincipe(e.target.value)}
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                >
+                  {MBO_ONTWERPPRINCIPE_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>{opt.label} - {opt.description}</option>
+                  ))}
+                </select>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Kwalificatiedossier</CardTitle>
+              <CardDescription>
+                Optioneel: vul gegevens in over het kwalificatiedossier
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-4 md:grid-cols-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Naam kwalificatiedossier
+                  </label>
+                  <input
+                    type="text"
+                    value={kdNaam}
+                    onChange={(e) => setKdNaam(e.target.value)}
+                    placeholder="bijv. ICT- en Mediabeheer"
+                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Versie
+                  </label>
+                  <input
+                    type="text"
+                    value={kdVersie}
+                    onChange={(e) => setKdVersie(e.target.value)}
+                    placeholder="bijv. 2024"
+                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Peildatum
+                  </label>
+                  <input
+                    type="date"
+                    value={kdPeildatum}
+                    onChange={(e) => setKdPeildatum(e.target.value)}
+                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                  />
+                </div>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Na het aanmaken van de opleiding kun je kerntaken en werkprocessen toevoegen.
+              </p>
+            </CardContent>
+          </Card>
+
+          <div className="flex justify-between">
+            <Button type="button" variant="outline" onClick={() => setStep(1)}>
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Terug
+            </Button>
+            <Button onClick={handleSubmit} disabled={isSubmitting}>
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Bezig met aanmaken...
+                </>
+              ) : (
+                <>
+                  Opleiding aanmaken
+                  <Check className="h-4 w-4 ml-2" />
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
