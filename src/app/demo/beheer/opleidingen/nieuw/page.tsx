@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { ProgramForm } from "@/components/admin/program/program-form";
+import { SimpleProgramForm } from "@/components/admin/program/simple-program-form";
 import { getAcademies, getInstitutes } from "@/lib/db/institutes";
 import { ArrowLeft } from "lucide-react";
 
@@ -54,7 +54,7 @@ export default async function NieuweOpleidingPage() {
       </div>
 
       <div className="rounded-lg border bg-card p-6">
-        <ProgramForm academies={serializedAcademies} institutes={serializedInstitutes} />
+        <SimpleProgramForm academies={serializedAcademies} institutes={serializedInstitutes} />
       </div>
     </div>
   );
