@@ -12,8 +12,12 @@ export async function middleware(request: NextRequest) {
   // API routes for auth should always be accessible
   const isAuthApi = pathname.startsWith("/api/auth");
 
-  // Public API routes (read-only data)
-  const isPublicApi = pathname.startsWith("/api/programs") || pathname.startsWith("/api/test-db");
+  // Public API routes (for demo purposes, allow all data APIs)
+  const isPublicApi =
+    pathname.startsWith("/api/programs") ||
+    pathname.startsWith("/api/institutes") ||
+    pathname.startsWith("/api/academies") ||
+    pathname.startsWith("/api/test-db");
 
   // Static files and API routes
   if (isAuthApi || isPublicApi || pathname.startsWith("/_next") || pathname.includes(".")) {
